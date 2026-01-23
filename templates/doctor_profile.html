@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctor Profile & Appointments</title>
+    <style>
+        body { font-family: Arial; margin: 0; padding: 20px; background: #f5f5f5; }
+        .navbar { background: #007bff; color: white; padding: 15px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .navbar h2 { margin: 0; }
+        .navbar a { color: white; text-decoration: none; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .card { background: white; padding: 30px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .doctor-info { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid #007bff; }
+        .appointments-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .appointments-table th, .appointments-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .appointments-table th { background: #007bff; color: white; }
+        .status-confirmed { color: #28a745; font-weight: bold; }
+        .status-cancelled { color: #dc3545; font-weight: bold; }
+        .no-appointments { text-align: center; color: #666; padding: 40px; }
+        .back-link { text-align: center; margin-top: 20px; }
+        .back-link a { color: #007bff; text-decoration: none; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h2>🏥 Doctor Profile & Appointments</h2>
+        <a href="/">← Back to Directory</a>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="doctor-info">
+                <h1 style="color:#007bff; margin-top:0;">👨‍⚕️ {{ doctor[2] }}</h1>
+                {% if doctor[8] %}
+                <img src="/static/uploads/{{ doctor[8] }}" alt="Doctor" style="width: 150px; height: 150px; object-fit: cover; border-radius: 10px; float: right; margin-left: 20px;">
+                {% endif %}
+                <p><strong>🏥 Hospital:</strong> {{ hospital[1] }}</p>
+                <p><strong>Location:</strong> {{ hospital[2] }}</p>
+                <p><strong>Specialization:</strong> {{ doctor[3] }}</p>
+                <p><strong>Education:</strong> {{ doctor[4] }}</p>
+                <p><strong>Timings:</strong> {{ doctor[5] }}</p>
+                <p><strong>Weekly Holiday:</strong> {{ doctor[6] or 'Not Set' }}</p>
+                {% if doctor[7] %}
+                <p><strong>Emergency Leave:</strong> {{ doctor[7] }}</p>
+                {% endif %}
+            </div>
+
+            <h2>📋 Appointments History</h2>
+            {% if appointments %}
+            <table class="appointments-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Patient Name</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for apt in appointments %}
+                    <tr>
+                        <td>{{ apt[3] }}</td>
+                        <td>{{ apt[4] }}</td>
+                        <td>{{ apt[5] }}</td>
+                        <td class="status-{{ apt[6] }}">{{ apt[6].title() }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-appointments">
+                <p>No appointments found for this doctor.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="back-link">
+            <a href="/">← Back to Hospital Directory</a>
+        </div>
+    </div>
+</body>
+</html>

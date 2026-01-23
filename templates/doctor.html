@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doctor Management</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; }
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; margin-top: 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .back-link { text-align: center; margin-top: 15px; }
+        .back-link a { color: #007bff; text-decoration: none; }
+        .current-image { margin-top: 10px; }
+        .current-image img { max-width: 200px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{% if doctor %}Edit Doctor{% else %}Add Doctor{% endif %}</h1>
+        <form method="POST" enctype="multipart/form-data">
+            {% if doctor %}
+            <input type="hidden" name="id" value="{{ doctor[0] }}">
+            <input type="hidden" name="old_image" value="{{ doctor[8] }}">
+            {% endif %}
+
+            <label>Doctor Name:</label>
+            <input type="text" name="name" value="{{ doctor[2] if doctor else '' }}" required>
+
+            <label>Specialization:</label>
+            <input type="text" name="specialization" value="{{ doctor[3] if doctor else '' }}" required>
+
+            <label>Education:</label>
+            <input type="text" name="education" value="{{ doctor[4] if doctor else '' }}" required>
+
+
+           <label>Timings:</label>
+            <input type="text" name="timings" value="{{ doctor[5] if doctor else '' }}" placeholder="e.g., 9:00 AM - 5:00 PM" required>
+
+            <label>Weekly Holiday (optional):</label>
+            <input type="text" name="weekly_holiday" value="{{ doctor[6] if doctor else '' }}" placeholder="Leave empty if none">
+
+            <label>Emergency Leave Date:</label>
+            <input type="date" name="emergency_date">
+
+            <label>Emergency Leave Session:</label>
+            <select name="emergency_session">
+                <option value="">-- Select --</option>
+                <option {% if doctor and doctor[7] and 'Morning' in doctor[7] %}selected{% endif %}>Morning</option>
+                <option {% if doctor and doctor[7] and 'Afternoon' in doctor[7] %}selected{% endif %}>Afternoon</option>
+                <option {% if doctor and doctor[7] and 'Evening' in doctor[7] %}selected{% endif %}>Evening</option>
+                <option {% if doctor and doctor[7] and 'Full Day' in doctor[7] %}selected{% endif %}>Full Day</option>
+            </select>
+
+
+            <label>Doctor Photo:</label>
+            <input type="file" name="photo" accept="image/*">
+            <small style="color: #666; display: block; margin-top: 5px;">Images are stored in the static/uploads folder. Leave empty to keep current image.</small>
+
+            {% if doctor and doctor[8] %}
+            <div class="current-image">
+                <strong>Current Image:</strong><br>
+                <img src="/static/uploads/{{ doctor[8] }}" alt="Doctor">
+            </div>
+            {% endif %}
+
+            <button type="submit">{% if doctor %}Update Doctor{% else %}Add Doctor{% endif %}</button>
+        </form>
+
+        <div class="back-link">
+            <a href="/dashboard">← Back to Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>

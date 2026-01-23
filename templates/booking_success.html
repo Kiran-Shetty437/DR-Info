@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Appointment Confirmed</title>
+    <style>
+        body { font-family: Arial; margin: 0; padding: 20px; background: #f5f5f5; text-align: center; }
+        .navbar { background: #007bff; color: white; padding: 15px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .navbar h2 { margin: 0; }
+        .navbar a { color: white; text-decoration: none; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .success-card { background: white; padding: 40px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.1); border: 3px solid #28a745; }
+        .success-icon { font-size: 64px; color: #28a745; margin-bottom: 20px; }
+        .success-card h1 { color: #28a745; margin: 20px 0; }
+        .details { background: #f8fff9; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 5px solid #28a745; text-align: left; }
+        .details p { margin: 10px 0; font-size: 18px; }
+        .appointment-number { background: #e7f3ff; padding: 15px; border-radius: 10px; margin: 20px 0; border-left: 5px solid #007bff; }
+        .appointment-number span { font-size: 32px; font-weight: bold; color: #007bff; }
+        .actions { display: flex; gap: 15px; justify-content: center; margin-top: 30px; }
+        .btn { padding: 12px 25px; border-radius: 8px; text-decoration: none; font-size: 16px; display: inline-block; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h2>🏥 Appointment Confirmed</h2>
+        <a href="/">← Back to Directory</a>
+    </div>
+
+    <div class="container">
+        <div class="success-card">
+            <div class="success-icon">🎉</div>
+            <h1>Appointment Confirmed!</h1>
+            <p style="font-size: 18px; color: #666;">Your appointment has been successfully booked.</p>
+
+            <div class="details">
+                <p><strong>👨‍⚕️ Doctor:</strong> {{ doctor[2] }}</p>
+                <p><strong>🏥 Hospital:</strong> {{ hospital[1] }}</p>
+                <p><strong>📅 Date:</strong> {{ appointment_date }}</p>
+                <p><strong>👤 Patient:</strong> {{ patient_name }}</p>
+                <p><strong>📞 Phone:</strong> {{ patient_phone }}</p>
+            </div>
+
+            <div class="appointment-number">
+                <strong>Your Appointment Number:</strong><br>
+                <span>#{{ appointment_number }}</span>
+            </div>
+
+            <p style="color: #666; font-style: italic;">
+                Please arrive 15 minutes before your appointment time. Bring this confirmation with you.
+            </p>
+        </div>
+
+        <div class="actions">
+            <a href="/my_appointments/{{ patient_phone }}" class="btn btn-primary">📋 View My Appointments</a>
+            <a href="/" class="btn btn-success">🏥 Book Another Appointment</a>
+        </div>
+    </div>
+</body>
+</html>
