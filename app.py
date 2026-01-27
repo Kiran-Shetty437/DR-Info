@@ -558,7 +558,9 @@ def dashboard():
     
     con.close()
     
-    edit_mode = request.args.get("edit") == "1"
+    # If there is no hospital record yet, force edit mode
+    # so the user is immediately asked to enter hospital details.
+    edit_mode = (request.args.get("edit") == "1") or (hospital is None)
     
     return render_template("dashboard.html", 
                            hospital=hospital, 
