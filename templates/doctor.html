@@ -7,19 +7,65 @@
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         h1 { text-align: center; }
         label { display: block; margin-top: 15px; font-weight: bold; }
-        input, textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; margin-top: 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
         button:hover { background: #0056b3; }
         .back-link { text-align: center; margin-top: 15px; }
         .back-link a { color: #007bff; text-decoration: none; }
         .current-image { margin-top: 10px; }
         .current-image img { max-width: 200px; border-radius: 5px; }
+        .status-unavailable { 
+            background: #f8d7da; 
+            color: #721c24; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-top: 15px;
+            border-left: 5px solid #dc3545;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .status-available { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-top: 15px;
+            border-left: 5px solid #28a745;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .error-message { 
+            background: #f8d7da; 
+            color: #721c24; 
+            padding: 12px; 
+            border-radius: 5px; 
+            margin-top: 15px;
+            border-left: 4px solid #dc3545;
+        }
+        .date-hint {
+            color: #666; 
+            font-size: 14px; 
+            margin-top: 5px; 
+            display: block;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>{% if doctor %}Edit Doctor{% else %}Add Doctor{% endif %}</h1>
-        <form method="POST" enctype="multipart/form-data">
+        
+        {% if error %}
+        <div class="error-message">
+            {% if error == 'past_date' %}
+                ❌ Emergency leave date cannot be in the past. Please select **today** or future dates only.
+            {% elif error == 'invalid_date' %}
+                ❌ Invalid date format. Please select a valid date.
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <form method="POST" enctype="multipart/form-data" id="doctorForm">
             {% if doctor %}
             <input type="hidden" name="id" value="{{ doctor[0] }}">
             <input type="hidden" name="old_image" value="{{ doctor[8] }}">
@@ -34,43 +80,96 @@
             <label>Education:</label>
             <input type="text" name="education" value="{{ doctor[4] if doctor else '' }}" required>
 
-
-           <label>Timings:</label>
+            <label>Timings:</label>
             <input type="text" name="timings" value="{{ doctor[5] if doctor else '' }}" placeholder="e.g., 9:00 AM - 5:00 PM" required>
 
             <label>Weekly Holiday (optional):</label>
-            <input type="text" name="weekly_holiday" value="{{ doctor[6] if doctor else '' }}" placeholder="Leave empty if none">
+            <input type="text" name="weekly_holiday" value="{{ doctor[6] if doctor else '' }}" placeholder="e.g., Sunday, Monday">
+            <small style="color: #666;">Enter day names separated by commas</small>
+
+            <label>Maximum Appointments per Day:</label>
+            <input type="number" name="max_appointments" value="{{ doctor[9] if doctor and doctor[9] else 3 }}" min="1" max="20" required>
 
             <label>Emergency Leave Date:</label>
-            <input type="date" name="emergency_date">
+            <input type="date" name="emergency_date" id="emergency_date" 
+                   value="" 
+                   min="{{ today_date }}">
+            <span class="date-hint">
+                📅 Only **today ({{ today_date }})** and **future dates** allowed
+            </span>
 
             <label>Emergency Leave Session:</label>
-            <select name="emergency_session">
+            <select name="emergency_session" id="emergency_session">
                 <option value="">-- Select --</option>
-                <option {% if doctor and doctor[7] and 'Morning' in doctor[7] %}selected{% endif %}>Morning</option>
-                <option {% if doctor and doctor[7] and 'Afternoon' in doctor[7] %}selected{% endif %}>Afternoon</option>
-                <option {% if doctor and doctor[7] and 'Evening' in doctor[7] %}selected{% endif %}>Evening</option>
-                <option {% if doctor and doctor[7] and 'Full Day' in doctor[7] %}selected{% endif %}>Full Day</option>
+                <option value="Morning" {% if doctor and doctor[7] and 'Morning' in doctor[7] %}selected{% endif %}>Morning</option>
+                <option value="Afternoon" {% if doctor and doctor[7] and 'Afternoon' in doctor[7] %}selected{% endif %}>Afternoon</option>
+                <option value="Evening" {% if doctor and doctor[7] and 'Evening' in doctor[7] %}selected{% endif %}>Evening</option>
+                <option value="Full Day" {% if doctor and doctor[7] and 'Full Day' in doctor[7] %}selected{% endif %}>Full Day</option>
             </select>
-
 
             <label>Doctor Photo:</label>
             <input type="file" name="photo" accept="image/*">
-            <small style="color: #666; display: block; margin-top: 5px;">Images are stored in the static/uploads folder. Leave empty to keep current image.</small>
+            <small style="color: #666; display: block; margin-top: 5px;">Leave empty to keep current image.</small>
 
             {% if doctor and doctor[8] %}
             <div class="current-image">
                 <strong>Current Image:</strong><br>
-                <img src="/static/uploads/{{ doctor[8] }}" alt="Doctor">
+                <img src="/static/uploads/{{ doctor[8] }}" alt="Doctor" style="max-width: 200px; border-radius: 5px;" onerror="this.style.display='none'">
             </div>
             {% endif %}
 
             <button type="submit">{% if doctor %}Update Doctor{% else %}Add Doctor{% endif %}</button>
         </form>
 
+        {% if doctor %}
+        <!-- **DOCTOR AVAILABILITY STATUS** -->
+        <div class="{% if is_unavailable %}status-unavailable{% else %}status-available{% endif %}">
+            <strong>🚨 TODAY'S STATUS:</strong> 
+            {% if is_unavailable %}
+                {% if unavailable_reason == 'emergency' %}
+                    🚨 **ON EMERGENCY LEAVE** - {{ unavailable_detail }}<br>
+                    <small>⚠️ Profile DISABLED for TODAY - No bookings allowed</small>
+                {% elif unavailable_reason == 'weekly_holiday' %}
+                    📅 **WEEKLY HOLIDAY** - {{ unavailable_detail }}<br>
+                    <small>⚠️ Profile DISABLED for TODAY - No bookings allowed</small>
+                {% endif %}
+            {% else %}
+                ✅ **AVAILABLE** - Max {{ doctor[9] if doctor[9] else 3 }} appointments/day<br>
+                <small>✅ Profile ACTIVE - Bookings allowed</small>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <div class="back-link">
             <a href="/dashboard">← Back to Dashboard</a>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('doctorForm');
+            const emergencyDateInput = document.getElementById('emergency_date');
+            const today = new Date().toISOString().split('T')[0];
+
+            emergencyDateInput.min = today;
+
+            emergencyDateInput.addEventListener('change', function() {
+                if (this.value < today) {
+                    this.value = '';
+                    alert('🚫 Emergency leave date cannot be in the past.\n\nPlease select today (' + today + ') or future dates only.');
+                }
+            });
+
+            form.addEventListener('submit', function(e) {
+                const emergencyDate = emergencyDateInput.value;
+                if (emergencyDate && emergencyDate < today) {
+                    e.preventDefault();
+                    alert('🚫 Emergency leave date cannot be in the past.\n\nPlease select today (' + today + ') or future dates only.');
+                    emergencyDateInput.focus();
+                    return false;
+                }
+            });
+        });
+    </script>
 </body>
 </html>

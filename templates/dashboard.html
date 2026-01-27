@@ -1,162 +1,324 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard</title>
+    <title>Hospital Dashboard</title>
     <style>
-        body { font-family: Arial; margin: 0; padding: 20px; background: #f5f5f5; }
-        .navbar { background: #007bff; color: white; padding: 15px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .navbar h2 { margin: 0; }
-        .navbar a { color: white; text-decoration: none; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .card { background: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
-        .card h3 { margin-top: 0; }
-        input, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .doctor-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
-        .doctor-card { background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; position: relative; }
-        .doctor-card img { width: 100%; height: 150px; object-fit: cover; border-radius: 5px; }
-        .doctor-card h4 { margin: 10px 0 5px 0; }
-        .doctor-actions { position: absolute; top: 10px; right: 10px; }
-        .hospital-banner { 
-            height: 75vh; /* 3/4 of viewport height */
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            color: white; 
-            border-radius: 15px;
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5; 
+            margin: 0;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            text-align: center; 
+            color: #333;
             margin-bottom: 30px;
-            overflow: hidden;
-            position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        .hospital-banner-content { 
-            display: flex; 
-            align-items: center; 
-            height: 100%;
-            padding: 40px;
-            position: relative;
+        .hospital-form {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 5px solid #007bff;
         }
-        .hospital-text { 
-            flex: 1; 
-            z-index: 2;
+        .form-group {
+            margin-bottom: 15px;
         }
-        .hospital-text h1 { 
-            margin: 0 0 20px 0; 
-            font-size: 48px; 
+        label {
+            display: block;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 5px;
+            color: #555;
         }
-        .hospital-text .location { 
-            margin: 0; 
-            font-size: 24px; 
-            opacity: 0.9;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-        }
-        .hospital-banner-image { 
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 60%;
-            height: 100%;
-            z-index: 1;
-        }
-        .hospital-banner-image img { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover;
-            opacity: 0.8;
-        }
-        .edit-btn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: 2px solid white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            text-decoration: none;
-            display: inline-block;
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
             font-size: 16px;
-            margin-top: 20px;
-            transition: all 0.3s ease;
         }
-        .edit-btn:hover {
-            background: rgba(255,255,255,0.3);
-            transform: scale(1.05);
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545 !important;
+        }
+        .btn-danger:hover {
+            background: #c82333 !important;
+        }
+        .doctors-section {
+            margin-top: 30px;
+        }
+        .doctor-card {
+            background: #f8f9fa;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            border-left: 5px solid #007bff;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        .doctor-unavailable {
+            border-left-color: #dc3545 !important;
+            background: #f8d7da !important;
+        }
+        .doctor-available {
+            border-left-color: #28a745 !important;
+            background: #d4edda !important;
+        }
+        .doctor-left {
+            flex: 1;
+        }
+        .doctor-info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .doctor-details {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        .doctor-status {
+            font-weight: bold;
+            font-size: 14px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            margin-left: 10px;
+        }
+        .status-available {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+        .status-unavailable {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+        .doctor-photo {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #007bff;
+            box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+            margin-bottom: 15px;
+        }
+        .no-photo {
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, #e9ecef, #dee2e6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            font-size: 32px;
+            color: #6c757d;
+            border: 4px solid #dee2e6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .doctor-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .doctor-actions a {
+            text-decoration: none;
+        }
+        .doctor-actions button {
+            width: 120px;
+            padding: 10px;
+            font-size: 14px;
+        }
+        .hospital-image {
+            max-width: 100px;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .logout-link {
+            text-align: right;
+            margin-bottom: 20px;
+        }
+        .logout-link a {
+            color: #dc3545;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .edit-mode {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffc107;
+            text-align: center;
+        }
+        .unavailable-notice {
+            color: #721c24;
+            font-weight: bold;
+            background: rgba(248,215,218,0.4);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+            border-left: 4px solid #dc3545;
+        }
+        @media (max-width: 768px) {
+            .doctor-card {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .doctor-actions {
+                flex-direction: row;
+                justify-content: flex-end;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="navbar">
-        <h2>🏥 Hospital Dashboard</h2>
-        <a href="/logout">Logout</a>
-    </div>
-
     <div class="container">
-        {% if hospital and hospital[1] and hospital[2] %}
-        <!-- Hospital Info Display Card - Large Banner -->
-        <div class="hospital-banner">
-            <div class="hospital-banner-content">
-                <div class="hospital-text">
-                    <h1>{{ hospital[1] }}</h1>
-                    <p class="location">📍 {{ hospital[2] }}</p>
-                    <a href="/dashboard?edit=1" class="edit-btn">✏️ Edit Profile</a>
-                </div>
-                {% if hospital[3] %}
-                <div class="hospital-banner-image">
-                    <img src="/static/uploads/{{ hospital[3] }}" alt="Hospital Image">
-                </div>
-                {% endif %}
-            </div>
+        <h1>🏥 {{ hospital[1] if hospital else 'Hospital' }} Dashboard</h1>
+        
+        <div class="logout-link">
+            <a href="/logout">🚪 Logout</a>
+        </div>
+
+        {% if edit_mode %}
+        <div class="edit-mode">
+            <strong>✏️ EDIT MODE ACTIVE</strong> - You can now update hospital details and manage doctors
         </div>
         {% endif %}
 
-        {% if not hospital or not hospital[1] or not hospital[2] or edit_mode %}
-        <div class="card">
-            <h3>{% if edit_mode %}Edit Hospital Profile{% else %}Hospital Profile{% endif %}</h3>
-            <form method="POST" enctype="multipart/form-data">
+        {% if hospital %}
+        <div class="hospital-info">
+            <h3>🏥 Current Hospital Details</h3>
+            <p><strong>Name:</strong> {{ hospital[1] }}</p>
+            <p><strong>Location:</strong> {{ hospital[2] }}</p>
+            {% if hospital[3] %}
+            <img src="/static/uploads/{{ hospital[3] }}" alt="Hospital" class="hospital-image">
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Hospital Update Form -->
+        <form method="POST" enctype="multipart/form-data" class="hospital-form">
+            <h3>🏥 Update Hospital Details</h3>
+            <div class="form-group">
                 <label>Hospital Name:</label>
-                <input type="text" name="name" value="{{ hospital[1] if hospital else '' }}" required>
-
+                <input type="text" name="name" value="{{ hospital[1] if hospital else '' }}" placeholder="Enter hospital name" required>
+            </div>
+            <div class="form-group">
                 <label>Location:</label>
-                <input type="text" name="location" value="{{ hospital[2] if hospital else '' }}" required>
-
-                <label>Hospital Image:</label>
+                <input type="text" name="location" value="{{ hospital[2] if hospital else '' }}" placeholder="Enter location" required>
+            </div>
+            <div class="form-group">
+                <label>Hospital Photo:</label>
                 <input type="file" name="hospital_image" accept="image/*">
+            </div>
+            <button type="submit">💾 Update Hospital</button>
+        </form>
 
-                {% if hospital and hospital[3] %}
-                <p>Current Image:</p>
-                <img src="/static/uploads/{{ hospital[3] }}" style="width: 200px; height: auto; border-radius: 5px; margin-bottom: 15px;">
-                {% endif %}
+        <!-- Doctors Section -->
+        <div class="doctors-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
+                <h3>👨‍⚕️ Doctors ({{ doctors_with_status|length }})</h3>
+                <a href="/doctors"><button>Add New Doctor</button></a>
+            </div>
 
-                <button type="submit">Update Profile</button>
-                {% if edit_mode %}
-                <a href="/dashboard" style="margin-left: 10px; padding: 10px 20px; background: #6c757d; color: white; text-decoration: none; border-radius: 5px;">Cancel</a>
-                {% endif %}
-            </form>
-        </div>
-        {% endif %}
+            {% if doctors_with_status %}
+                {% for item in doctors_with_status %}
+                <div class="doctor-card {% if item.is_unavailable %}doctor-unavailable{% else %}doctor-available{% endif %}">
+                    <div class="doctor-left">
+                        <!-- DOCTOR PHOTO -->
+                        {% if item.doctor[8] %}
+                        <img src="/static/uploads/{{ item.doctor[8] }}" alt="{{ item.doctor[2] }}" class="doctor-photo">
+                        {% else %}
+                        <div class="no-photo">👨‍⚕️</div>
+                        {% endif %}
 
-        <div class="card">
-            <h3>👨‍⚕️ Doctors</h3>
-            <a href="/doctors"><button>+ Add Doctor</button></a>
+                        <div class="doctor-info">
+                            <h3>{{ item.doctor[2] }} 
+                                <span class="doctor-status {% if item.is_unavailable %}status-unavailable{% else %}status-available{% endif %}">
+                                    {% if item.is_unavailable %}
+                                        {% if item.unavailable_reason == 'emergency' %}
+                                            🚨 EMERGENCY LEAVE
+                                        {% elif item.unavailable_reason == 'weekly_holiday' %}
+                                            📅 WEEKLY HOLIDAY
+                                        {% endif %}
+                                        ({{ item.unavailable_detail }})
+                                    {% else %}
+                                        ✅ AVAILABLE
+                                    {% endif %}
+                                </span>
+                            </h3>
+                            
+                            <div class="doctor-details">
+                                <strong>🩺 Specialization:</strong> {{ item.doctor[3] }}<br>
+                                <strong>🕒 Timings:</strong> {{ item.doctor[5] }}<br>
+                                <strong>📅 Max Appointments:</strong> {{ item.doctor[9] if item.doctor[9] else 3 }}/day<br>
+                                {% if item.doctor[6] %}
+                                <strong>📋 Weekly Holiday:</strong> {{ item.doctor[6] }}<br>
+                                {% endif %}
+                                {% if item.doctor[7] %}
+                                <strong>🚨 Emergency Leave:</strong> {{ item.doctor[7] }}<br>
+                                {% endif %}
+                                {% if item.doctor[4] %}
+                                <strong>🎓 Education:</strong> {{ item.doctor[4] }}
+                                {% endif %}
+                            </div>
 
-            <div class="doctor-list">
-                {% for doctor in doctors %}
-                <div class="doctor-card">
-                    {% if doctor[8] %}
-                    <img src="/static/uploads/{{ doctor[8] }}" alt="Doctor">
-                    {% endif %}
-                    <h4>{{ doctor[2] }}</h4>
-                    <p><strong>Specialization:</strong> {{ doctor[3] }}</p>
-                    <p><strong>Timings:</strong> {{ doctor[5] }}</p>
+                            {% if item.is_unavailable %}
+                            <div class="unavailable-notice">
+                                ⚠️ **PROFILE DISABLED TODAY** - No new bookings allowed
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
                     <div class="doctor-actions">
-                        <a href="/doctors?id={{ doctor[0] }}" style="background: #007bff; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; font-size: 12px; margin-right: 5px;">✏️ Edit</a>
+                        {% if edit_mode %}
                         <form method="POST" style="display: inline;">
-                            <input type="hidden" name="delete_doctor_id" value="{{ doctor[0] }}">
-                            <button type="submit" style="background: #dc3545; color: white; padding: 5px 10px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer;">🗑️ Delete</button>
+                            <input type="hidden" name="delete_doctor_id" value="{{ item.doctor[0] }}">
+                            <button type="submit" class="btn-danger" onclick="return confirm('Delete {{ item.doctor[2] }}?')">🗑️ Delete</button>
                         </form>
+                        {% endif %}
+                        <a href="/doctors?id={{ item.doctor[0] }}"><button>✏️ Edit</button></a>
+                        <a href="/view_appointments/{{ item.doctor[0] }}"><button>📋 Appointments</button></a>
                     </div>
                 </div>
                 {% endfor %}
-            </div>
+            {% else %}
+                <p style="text-align: center; color: #666; padding: 60px; font-size: 18px;">
+                    No doctors added yet. <a href="/doctors" style="color: #007bff; font-weight: bold;"><strong>Add your first doctor →</strong></a>
+                </p>
+            {% endif %}
         </div>
     </div>
 </body>

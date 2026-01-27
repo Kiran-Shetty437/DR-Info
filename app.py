@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response
 import sqlite3, os
 import re
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
+import csv
+from io import StringIO
 
 app = Flask(__name__)
 app.secret_key = "secret123"
@@ -46,7 +48,8 @@ def init_db():
         timings TEXT,
         weekly_holiday TEXT,
         emergency_leave TEXT,
-        image TEXT
+        image TEXT,
+        max_appointments INTEGER DEFAULT 3
     )""")
 
     cur.execute("""
@@ -65,6 +68,28 @@ def init_db():
     con.close()
 
 init_db()
+
+# **NEW: Function to check if doctor is unavailable TODAY**
+def is_doctor_unavailable_today(doctor):
+    if not doctor:
+        return False, None, None
+    
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    today_weekday = datetime.now().strftime('%A')
+    
+    # Check WEEKLY HOLIDAY
+    weekly_holiday = doctor[6] or ""
+    weekly_days = [day.strip() for day in weekly_holiday.split(',') if day.strip()]
+    if today_weekday in weekly_days:
+        return True, "weekly_holiday", f"{today_weekday} (Weekly Holiday)"
+    
+    # Check EMERGENCY LEAVE
+    emergency_leave = doctor[7] or ""
+    if emergency_leave.startswith(today_str + " "):
+        session_info = emergency_leave.replace(today_str + " ", "")
+        return True, "emergency", f"{today_str} - {session_info}"
+    
+    return False, None, None
 
 @app.route("/", methods=["GET","POST"])
 def home():
@@ -86,21 +111,31 @@ def home():
         cur.execute("SELECT * FROM doctor WHERE username=?", (hospital_username,))
         doctors = cur.fetchall()
 
-        if search_query:
-            filtered_doctors = []
-            for doctor in doctors:
-                if (search_query in doctor[2].lower() or
-                    search_query in doctor[3].lower() or
-                    search_query in hospital[1].lower()):
-                    filtered_doctors.append(doctor)
-            doctors = filtered_doctors
-            if not doctors:
-                continue
+        # **ADD AVAILABILITY STATUS TO ALL DOCTORS**
+        doctors_with_status = []
+        for doctor in doctors:
+            unavailable, reason, detail = is_doctor_unavailable_today(doctor)
+            doctor_with_status = list(doctor)
+            doctor_with_status.extend([unavailable, reason, detail])  # Add status at end
+            doctors_with_status.append(doctor_with_status)
 
-        hospitals_with_doctors.append({
-            'hospital': hospital,
-            'doctors': doctors
-        })
+        if search_query:
+            # Filter available doctors only for search
+            filtered_doctors = [d for d in doctors_with_status if not d[-3] and (
+                search_query in d[2].lower() or
+                search_query in d[3].lower() or
+                search_query in hospital[1].lower()
+            )]
+            if filtered_doctors:
+                hospitals_with_doctors.append({
+                    'hospital': hospital,
+                    'doctors': filtered_doctors
+                })
+        else:
+            hospitals_with_doctors.append({
+                'hospital': hospital,
+                'doctors': doctors_with_status
+            })
    
     con.close()
     return render_template("user.html", hospitals_with_doctors=hospitals_with_doctors, search_query=search_query)
@@ -110,7 +145,6 @@ def doctor_profile(doctor_id):
     con = get_db()
     cur = con.cursor()
     
-    # Get doctor details
     cur.execute("SELECT * FROM doctor WHERE id=?", (doctor_id,))
     doctor = cur.fetchone()
     
@@ -118,11 +152,11 @@ def doctor_profile(doctor_id):
         con.close()
         return "Doctor not found", 404
     
-    # Get hospital details
+    is_unavailable, reason, detail = is_doctor_unavailable_today(doctor)
+    
     cur.execute("SELECT * FROM hospital WHERE username=?", (doctor[1],))
     hospital = cur.fetchone()
     
-    # Get all appointments for this doctor
     cur.execute("""
         SELECT id, doctor_name, hospital_name, appointment_date, patient_name, patient_phone, status 
         FROM appointment WHERE doctor_id=? ORDER BY appointment_date DESC, id DESC
@@ -132,16 +166,18 @@ def doctor_profile(doctor_id):
     con.close()
     
     return render_template("doctor_profile.html", 
-                         doctor=doctor, 
-                         hospital=hospital, 
-                         appointments=appointments)
+                           doctor=doctor, 
+                           hospital=hospital, 
+                           appointments=appointments,
+                           is_unavailable=is_unavailable,
+                           unavailable_reason=reason,
+                           unavailable_detail=detail)
 
 @app.route("/book_appointment/<int:doctor_id>", methods=["GET", "POST"])
 def book_appointment_page(doctor_id):
     con = get_db()
     cur = con.cursor()
     
-    # Get doctor details
     cur.execute("SELECT * FROM doctor WHERE id=?", (doctor_id,))
     doctor = cur.fetchone()
     
@@ -149,11 +185,46 @@ def book_appointment_page(doctor_id):
         con.close()
         return "Doctor not found", 404
     
-    # Get hospital details
+    # **INLINE UNAVAILABLE MESSAGE - NO SEPARATE TEMPLATE NEEDED**
+    is_unavailable, reason, detail = is_doctor_unavailable_today(doctor)
+    if is_unavailable:
+        cur.execute("SELECT * FROM hospital WHERE username=?", (doctor[1],))
+        hospital = cur.fetchone()
+        con.close()
+        
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Doctor Unavailable</title>
+            <style>
+                body {{ font-family: Arial; text-align: center; padding: 50px; background: #f5f5f5; margin: 0; }}
+                .msg {{ background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-width: 500px; margin: 0 auto; }}
+                h1 {{ color: #dc3545; font-size: 32px; margin-bottom: 20px; }}
+                .doctor-name {{ font-size: 24px; color: #333; margin: 20px 0; }}
+                .reason {{ background: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 16px; }}
+                .back {{ padding: 12px 30px; background: #007bff; color: white; text-decoration: none; border-radius: 25px; display: inline-block; margin-top: 20px; }}
+                .back:hover {{ background: #0056b3; }}
+            </style>
+        </head>
+        <body>
+            <div class='msg'>
+                <h1>🚨 Doctor Unavailable Today</h1>
+                <div class='reason'>
+                    <strong>Reason:</strong> {reason.title() if reason else 'Unknown'}<br>
+                    <strong>Details:</strong> {detail or 'No details available'}
+                </div>
+                <div class='doctor-name'>{doctor[2]}</div>
+                <p style='color: #666; font-size: 16px;'>Please try another doctor or check back tomorrow.</p>
+                <a href='/' class='back'>🏥 Browse Other Doctors</a>
+            </div>
+        </body>
+        </html>
+        """
+    
     cur.execute("SELECT * FROM hospital WHERE username=?", (doctor[1],))
     hospital = cur.fetchone()
     
-    # Get appointment stats
     cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=?", (doctor_id,))
     existing_count = cur.fetchone()[0]
     
@@ -164,57 +235,56 @@ def book_appointment_page(doctor_id):
     cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM appointment")
     next_number = cur.fetchone()[0]
     
-    can_book_today = today_count < DAILY_APPOINTMENT_LIMIT
+    max_appts = doctor[9] if len(doctor) > 9 and doctor[9] else DAILY_APPOINTMENT_LIMIT
+    can_book_today = today_count < max_appts
     
     con.close()
     
     if request.method == "POST":
-        # Handle the booking
         appointment_date = request.form.get("appointment_date")
         patient_name = request.form.get("patient_name", "").strip()
         patient_phone = request.form.get("patient_phone", "").strip()
 
         if not patient_name or len(patient_name) < 2:
             return render_template("book_appointment.html", 
-                                 doctor=doctor, 
-                                 hospital=hospital,
-                                 existing_count=existing_count,
-                                 today_count=today_count,
-                                 daily_limit=DAILY_APPOINTMENT_LIMIT,
-                                 can_book_today=can_book_today,
-                                 next_appointment_number=next_number,
-                                 error="Patient name is required (minimum 2 characters)")
+                                   doctor=doctor, 
+                                   hospital=hospital,
+                                   existing_count=existing_count,
+                                   today_count=today_count,
+                                   daily_limit=max_appts,
+                                   can_book_today=can_book_today,
+                                   next_appointment_number=next_number,
+                                   error="Patient name is required (minimum 2 characters)")
 
         phone_digits = re.sub(r'\D', '', patient_phone)
         if len(phone_digits) != 10:
             return render_template("book_appointment.html", 
-                                 doctor=doctor, 
-                                 hospital=hospital,
-                                 existing_count=existing_count,
-                                 today_count=today_count,
-                                 daily_limit=DAILY_APPOINTMENT_LIMIT,
-                                 can_book_today=can_book_today,
-                                 next_appointment_number=next_number,
-                                 error="Phone number must be exactly 10 digits")
+                                   doctor=doctor, 
+                                   hospital=hospital,
+                                   existing_count=existing_count,
+                                   today_count=today_count,
+                                   daily_limit=max_appts,
+                                   can_book_today=can_book_today,
+                                   next_appointment_number=next_number,
+                                   error="Phone number must be exactly 10 digits")
 
         con = get_db()
         cur = con.cursor()
         
-        # Check daily limit again
         cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=? AND appointment_date=?", (doctor_id, appointment_date))
         daily_count = cur.fetchone()[0]
         
-        if daily_count >= DAILY_APPOINTMENT_LIMIT:
+        if daily_count >= max_appts:
             con.close()
             return render_template("book_appointment.html", 
-                                 doctor=doctor, 
-                                 hospital=hospital,
-                                 existing_count=existing_count,
-                                 today_count=today_count,
-                                 daily_limit=DAILY_APPOINTMENT_LIMIT,
-                                 can_book_today=False,
-                                 next_appointment_number=next_number,
-                                 error=f"Daily limit reached! Maximum {DAILY_APPOINTMENT_LIMIT} appointments per day per doctor.")
+                                   doctor=doctor, 
+                                   hospital=hospital,
+                                   existing_count=existing_count,
+                                   today_count=today_count,
+                                   daily_limit=max_appts,
+                                   can_book_today=False,
+                                   next_appointment_number=next_number,
+                                   error=f"Daily limit reached! Maximum {max_appts} appointments per day per doctor.")
         
         cur.execute("""
             INSERT INTO appointment (doctor_id, doctor_name, hospital_name, appointment_date, patient_name, patient_phone, status)
@@ -223,51 +293,59 @@ def book_appointment_page(doctor_id):
         con.close()
 
         return render_template("booking_success.html", 
-                             doctor=doctor, 
-                             hospital=hospital,
-                             appointment_date=appointment_date,
-                             patient_name=patient_name,
-                             patient_phone=patient_phone,
-                             appointment_number=next_number)
+                               doctor=doctor, 
+                               hospital=hospital,
+                               appointment_date=appointment_date,
+                               patient_name=patient_name,
+                               patient_phone=patient_phone,
+                               appointment_number=next_number)
     
-    # Default appointment date
     now = datetime.now()
     appointment_date = now if now.hour < 9 else now + timedelta(days=1)
     default_date = appointment_date.strftime('%Y-%m-%d')
     
     return render_template("book_appointment.html", 
-                         doctor=doctor, 
-                         hospital=hospital,
-                         existing_count=existing_count,
-                         today_count=today_count,
-                         daily_limit=DAILY_APPOINTMENT_LIMIT,
-                         can_book_today=can_book_today,
-                         next_appointment_number=next_number,
-                         default_date=default_date)
+                           doctor=doctor, 
+                           hospital=hospital,
+                           existing_count=existing_count,
+                           today_count=today_count,
+                           daily_limit=max_appts,
+                           can_book_today=can_book_today,
+                           next_appointment_number=next_number,
+                           default_date=default_date)
 
 @app.route("/get_appointment_stats/<int:doctor_id>", methods=["GET"])
 def get_appointment_stats(doctor_id):
     con = get_db()
     cur = con.cursor()
-   
+    
+    cur.execute("SELECT * FROM doctor WHERE id=?", (doctor_id,))
+    doctor = cur.fetchone()
+    
+    is_unavailable, reason, detail = is_doctor_unavailable_today(doctor)
+    
+    max_appts = doctor[9] if len(doctor) > 9 and doctor[9] else DAILY_APPOINTMENT_LIMIT
+    
     cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=?", (doctor_id,))
     existing_count = cur.fetchone()[0]
-   
+    
     today = datetime.now().strftime('%Y-%m-%d')
     cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=? AND appointment_date=?", (doctor_id, today))
     today_count = cur.fetchone()[0]
-   
+    
     cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM appointment")
     next_number = cur.fetchone()[0]
-   
-    can_book_today = today_count < DAILY_APPOINTMENT_LIMIT
-   
+    
+    can_book_today = today_count < max_appts and not is_unavailable
+    
     con.close()
     return jsonify({
         "existing_count": existing_count,
         "today_count": today_count,
-        "daily_limit": DAILY_APPOINTMENT_LIMIT,
+        "daily_limit": max_appts,
         "can_book_today": can_book_today,
+        "is_unavailable": is_unavailable,
+        "unavailable_reason": reason,
         "next_appointment_number": next_number
     })
 
@@ -298,7 +376,6 @@ def cancel_appointment(appointment_id):
     con = get_db()
     cur = con.cursor()
     
-    # Verify patient owns this appointment
     cur.execute("SELECT patient_phone FROM appointment WHERE id=?", (appointment_id,))
     apt = cur.fetchone()
     if not apt or re.sub(r'\D', '', apt[0]) != clean_phone:
@@ -319,7 +396,6 @@ def confirm_appointment(appointment_id):
     con = get_db()
     cur = con.cursor()
     
-    # Verify patient owns this appointment
     cur.execute("SELECT patient_phone, status FROM appointment WHERE id=?", (appointment_id,))
     apt = cur.fetchone()
     if not apt or re.sub(r'\D', '', apt[0]) != clean_phone:
@@ -354,24 +430,36 @@ def book_appointment():
 
     con = get_db()
     cur = con.cursor()
-   
-    today = datetime.now().strftime('%Y-%m-%d')
-    cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=? AND appointment_date=?", (doctor_id, appointment_date))
-    daily_count = cur.fetchone()[0]
-   
-    if daily_count >= DAILY_APPOINTMENT_LIMIT:
+    
+    cur.execute("SELECT * FROM doctor WHERE id=?", (doctor_id,))
+    doctor = cur.fetchone()
+    max_appts = doctor[9] if len(doctor) > 9 and doctor[9] else DAILY_APPOINTMENT_LIMIT
+    
+    # **CHECK DOCTOR AVAILABILITY**
+    is_unavailable, reason, detail = is_doctor_unavailable_today(doctor)
+    if is_unavailable:
         con.close()
         return jsonify({
             "status": "error",
-            "message": f"❌ Daily limit reached! Maximum {DAILY_APPOINTMENT_LIMIT} appointments per day per doctor."
+            "message": f"🚨 Doctor unavailable today: {detail}"
         }), 400
-   
+    
+    cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=? AND appointment_date=?", (doctor_id, appointment_date))
+    daily_count = cur.fetchone()[0]
+    
+    if daily_count >= max_appts:
+        con.close()
+        return jsonify({
+            "status": "error",
+            "message": f"❌ Daily limit reached! Maximum {max_appts} appointments per day per doctor."
+        }), 400
+    
     cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=?", (doctor_id,))
     existing_count = cur.fetchone()[0]
-   
+    
     cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM appointment")
     next_appointment_number = cur.fetchone()[0]
-   
+    
     cur.execute("""
         INSERT INTO appointment (doctor_id, doctor_name, hospital_name, appointment_date, patient_name, patient_phone, status)
         VALUES (?, ?, ?, ?, ?, ?, 'confirmed')""", (doctor_id, doctor_name, hospital_name, appointment_date, patient_name, patient_phone))
@@ -410,18 +498,15 @@ def dashboard():
     cur = con.cursor()
     
     if request.method == "POST":
-        # Handle delete doctor
         delete_doctor_id = request.form.get("delete_doctor_id")
         if delete_doctor_id:
             cur.execute("DELETE FROM doctor WHERE id=? AND username=?", (delete_doctor_id, username))
             con.commit()
             return redirect("/dashboard")
-        
-        # Handle hospital profile update
+            
         name = request.form.get("name", "").strip()
         location = request.form.get("location", "").strip()
         
-        # Handle image upload
         image_filename = None
         if "hospital_image" in request.files:
             file = request.files["hospital_image"]
@@ -430,40 +515,48 @@ def dashboard():
                 image_filename = f"{username}_{filename}"
                 file.save(os.path.join(app.config["UPLOAD_FOLDER"], image_filename))
         
-        # Update or insert hospital data
         cur.execute("SELECT * FROM hospital WHERE username=?", (username,))
         existing = cur.fetchone()
         
         if existing:
-            # Update existing record
             if image_filename:
                 cur.execute("UPDATE hospital SET name=?, location=?, image=? WHERE username=?", 
-                          (name, location, image_filename, username))
+                           (name, location, image_filename, username))
             else:
                 cur.execute("UPDATE hospital SET name=?, location=? WHERE username=?", 
-                          (name, location, username))
+                           (name, location, username))
         else:
-            # Insert new record
             cur.execute("INSERT INTO hospital (username, name, location, image) VALUES (?, ?, ?, ?)", 
-                      (username, name, location, image_filename))
+                       (username, name, location, image_filename))
         
         con.commit()
-        return redirect("/dashboard")  # Redirect to remove edit parameter
+        return redirect("/dashboard")
     
-    # Get updated hospital details
     cur.execute("SELECT * FROM hospital WHERE username=?", (username,))
     hospital = cur.fetchone()
     
-    # Get doctors for this hospital
     cur.execute("SELECT * FROM doctor WHERE username=?", (username,))
     doctors = cur.fetchall()
     
+    # **MARK DOCTORS UNAVAILABLE TODAY**
+    doctors_with_status = []
+    for doctor in doctors:
+        unavailable, reason, detail = is_doctor_unavailable_today(doctor)
+        doctors_with_status.append({
+            'doctor': doctor,
+            'is_unavailable': unavailable,
+            'unavailable_reason': reason,
+            'unavailable_detail': detail
+        })
+    
     con.close()
     
-    # Check if edit mode is requested
     edit_mode = request.args.get("edit") == "1"
     
-    return render_template("dashboard.html", hospital=hospital, doctors=doctors, edit_mode=edit_mode)
+    return render_template("dashboard.html", 
+                           hospital=hospital, 
+                           doctors_with_status=doctors_with_status, 
+                           edit_mode=edit_mode)
 
 @app.route("/doctors", methods=["GET", "POST"])
 def manage_doctors():
@@ -472,9 +565,26 @@ def manage_doctors():
     
     username = session["user"]
     doctor_id = request.args.get("id")
+    today_date = datetime.now().strftime('%Y-%m-%d')
     
     if request.method == "POST":
-        # Handle image upload
+        # **PAST DATE VALIDATION**
+        emergency_date = request.form.get("emergency_date")
+        if emergency_date:
+            today = datetime.now().date()
+            try:
+                input_date = datetime.strptime(emergency_date, '%Y-%m-%d').date()
+                if input_date < today:
+                    return render_template("doctor.html", 
+                                          doctor=None, 
+                                          today_date=today_date,
+                                          error="past_date")
+            except ValueError:
+                return render_template("doctor.html", 
+                                      doctor=None, 
+                                      today_date=today_date,
+                                      error="invalid_date")
+        
         image_filename = None
         if "photo" in request.files:
             file = request.files["photo"]
@@ -487,11 +597,10 @@ def manage_doctors():
         if request.form.get("emergency_date") and request.form.get("emergency_session"):
             emergency_leave = request.form["emergency_date"] + " " + request.form["emergency_session"]
         
-        if doctor_id:  # Update existing doctor
+        if doctor_id:
             con = get_db()
             cur = con.cursor()
             
-            # Get current image if no new image uploaded
             if not image_filename:
                 cur.execute("SELECT image FROM doctor WHERE id=? AND username=?", (doctor_id, username))
                 current = cur.fetchone()
@@ -501,33 +610,32 @@ def manage_doctors():
             cur.execute("""
                 UPDATE doctor SET 
                 name=?, specialization=?, education=?, timings=?, weekly_holiday=?, 
-                emergency_leave=?, image=?
+                emergency_leave=?, image=?, max_appointments=?
                 WHERE id=? AND username=?
             """, (
                 request.form["name"], request.form["specialization"], request.form["education"],
                 request.form["timings"], request.form["weekly_holiday"], 
-                emergency_leave, image_filename,
+                emergency_leave, image_filename, request.form.get("max_appointments", 3),
                 doctor_id, username
             ))
             con.commit()
             con.close()
-        else:  # Add new doctor
+        else:
             con = get_db()
             cur = con.cursor()
             cur.execute("""
-                INSERT INTO doctor (username, name, specialization, education, timings, weekly_holiday, emergency_leave, image)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO doctor (username, name, specialization, education, timings, weekly_holiday, emergency_leave, image, max_appointments)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 username, request.form["name"], request.form["specialization"], 
                 request.form["education"], request.form["timings"], request.form["weekly_holiday"],
-                emergency_leave, image_filename
+                emergency_leave, image_filename, request.form.get("max_appointments", 3)
             ))
             con.commit()
             con.close()
         
         return redirect("/dashboard")
     
-    # GET request - show form
     doctor = None
     if doctor_id:
         con = get_db()
@@ -536,7 +644,66 @@ def manage_doctors():
         doctor = cur.fetchone()
         con.close()
     
-    return render_template("doctor.html", doctor=doctor)
+    # **CHECK DOCTOR STATUS FOR TODAY**
+    is_unavailable, reason, detail = is_doctor_unavailable_today(doctor)
+    
+    error = request.args.get("error")
+    return render_template("doctor.html", 
+                           doctor=doctor, 
+                           today_date=today_date, 
+                           error=error,
+                           is_unavailable=is_unavailable,
+                           unavailable_reason=reason,
+                           unavailable_detail=detail)
+
+@app.route("/view_appointments/<int:doctor_id>")
+def view_appointments(doctor_id):
+    if "user" not in session:
+        return redirect("/login")
+    
+    username = session["user"]
+    
+    con = get_db()
+    cur = con.cursor()
+    
+    cur.execute("SELECT * FROM doctor WHERE id=? AND username=?", (doctor_id, username))
+    doctor = cur.fetchone()
+    if not doctor:
+        con.close()
+        return "Doctor not found", 404
+    
+    cur.execute("SELECT * FROM hospital WHERE username=?", (username,))
+    hospital = cur.fetchone()
+    
+    cur.execute("""
+        SELECT id, doctor_name, hospital_name, appointment_date, patient_name, patient_phone, status 
+        FROM appointment 
+        WHERE doctor_id=? AND status='confirmed'
+        ORDER BY appointment_date DESC, id DESC
+    """, (doctor_id,))
+    appointments = cur.fetchall()
+    
+    con.close()
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow([
+        'Appointment ID', 'Doctor Name', 'Hospital Name', 'Appointment Date', 
+        'Patient Name', 'Patient Phone', 'Status'
+    ])
+    
+    for apt in appointments:
+        writer.writerow(apt)
+    
+    csv_data = output.getvalue()
+    filename = f"appointments_{doctor[2].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename={filename}"}
+    )
 
 @app.route("/logout")
 def logout():

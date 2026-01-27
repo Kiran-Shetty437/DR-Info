@@ -13,14 +13,78 @@
         .scroll-btn { background: #007bff; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 18px; flex-shrink: 0; }
         .scroll-btn:hover { background: #0056b3; }
         .doctor-list { display: flex; gap: 15px; flex-wrap: wrap; padding: 5px 0; }
-        .doctor-card { background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; min-width: 250px; flex-shrink: 0; cursor: pointer; transition: transform 0.2s; }
-        .doctor-card:hover { transform: translateY(-5px); }
+        
+        /* Doctor Card Status Styles */
+        .doctor-card { 
+            background: #f9f9f9; 
+            padding: 15px; 
+            border-radius: 5px; 
+            border: 3px solid #ddd; 
+            min-width: 250px; 
+            flex-shrink: 0; 
+            cursor: pointer; 
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .doctor-card.available {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
+        }
+        .doctor-card.unavailable {
+            border-color: #dc3545;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c2c7 100%);
+            opacity: 0.7;
+            cursor: not-allowed;
+            position: relative;
+        }
+        .doctor-card.unavailable::before {
+            content: "🚨 UNAVAILABLE TODAY";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(220, 53, 69, 0.95);
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 10;
+            animation: pulse 2s infinite;
+        }
+        .doctor-card.unavailable .doctor-info { filter: grayscale(100%); }
+        .doctor-card:hover.available { transform: translateY(-5px); }
+
+        /* Status Badge */
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            z-index: 15;
+        }
+        .status-available { background: #28a745; }
+        .status-unavailable { background: #dc3545; animation: shake 0.5s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { background: rgba(220, 53, 69, 0.95); }
+            50% { background: rgba(220, 53, 69, 1); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+        
         .doctor-card img { width: 100%; height: 150px; object-fit: cover; border-radius: 5px; }
         button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
         button:hover:not(:disabled) { background: #0056b3; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-
-        /* NEW: Profile Link Button */
         .profile-link { 
             background: #17a2b8; 
             color: white; 
@@ -32,6 +96,56 @@
             margin-top: 10px; 
         }
         .profile-link:hover { background: #138496; }
+        .profile-link.unavailable {
+            background: #6c757d;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .doctor-info p { margin: 5px 0; font-size: 14px; }
+
+        /* **NEW: My Appointments Styles** */
+        .my-appointments { margin-top: 30px; }
+        .my-appointments h3 { color: #007bff; margin-bottom: 15px; }
+        .appointment-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #007bff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .appointment-item.cancelled {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+            opacity: 0.7;
+        }
+        .appointment-details { flex-grow: 1; }
+        .appointment-details h4 { margin: 0 0 5px 0; color: #333; }
+        .appointment-meta { font-size: 13px; color: #666; margin: 5px 0; }
+        .cancel-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .cancel-btn:hover { background: #c82333; }
+        .cancel-btn:disabled { background: #6c757d; cursor: not-allowed; }
+        .phone-input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 180px;
+            margin-bottom: 15px;
+        }
+        .loading { opacity: 0.6; pointer-events: none; }
+        .success-msg { background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .error-msg { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -59,23 +173,44 @@
             <h3 style="margin-top: 20px;">👨‍⚕️ Our Doctors</h3>
             <div class="doctor-list">
                 {% for doctor in item.doctors %}
-                    <div class="doctor-card">
-                        {% if doctor[8] %}
-                        <img src="/static/uploads/{{ doctor[8] }}" alt="Doctor">
+                <div class="doctor-card {% if doctor[-3] %}unavailable{% else %}available{% endif %}">
+                    <div class="status-badge {% if doctor[-3] %}status-unavailable{% else %}status-available{% endif %}">
+                        {% if doctor[-3] %}
+                            {% if doctor[-2] == 'emergency' %}
+                                🚨 EMERGENCY
+                            {% elif doctor[-2] == 'weekly_holiday' %}
+                                📅 HOLIDAY
+                            {% endif %}
                         {% else %}
-                        <div style="width: 100%; height: 150px; background: #ddd; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #999;">No Image</div>
+                            ✅ AVAILABLE
                         {% endif %}
-                        <h4>{{ doctor[2] }}</h4>
-                        <div class="doctor-info">
-                            <p><strong>Specialization:</strong> {{ doctor[3] }}</p>
-                            <p><strong>Education:</strong> {{ doctor[4] }}</p>
-                        </div>
-                        <!-- NEW: Profile Link -->
-                        <a href="/book_appointment/{{ doctor[0] }}" class="profile-link" style="margin-top: 10px; display: inline-block;">📅 Book Appointment</a>
-                        <a href="/doctor_profile/{{ doctor[0] }}" class="profile-link" style="margin-top: 10px; display: inline-block;">👁️ View Profile</a>
                     </div>
-                    {% endfor %}
+
+                    {% if doctor[8] %}
+                    <img src="/static/uploads/{{ doctor[8] }}" alt="Doctor">
+                    {% else %}
+                    <div style="width: 100%; height: 150px; background: #ddd; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #999;">No Image</div>
+                    {% endif %}
+                    
+                    <h4>{{ doctor[2] }}</h4>
+                    <div class="doctor-info">
+                        <p><strong>Specialization:</strong> {{ doctor[3] }}</p>
+                        <p><strong>Education:</strong> {{ doctor[4] }}</p>
+                        {% if doctor[-3] %}
+                        <p style="color: #721c24; font-weight: bold; font-size: 13px;">
+                            📅 {{ doctor[-1] }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{% if not doctor[-3] %}/book_appointment/{{ doctor[0] }}{% else %}#{% endif %}" 
+                       class="profile-link {% if doctor[-3] %}unavailable{% endif %}">
+                        📅 {% if doctor[-3] %}Book Later{% else %}Book Appointment{% endif %}
+                    </a>
+                    <a href="/doctor_profile/{{ doctor[0] }}" class="profile-link">👁️ View Profile</a>
                 </div>
+                {% endfor %}
+            </div>
         </div>
         {% endfor %}
 
@@ -83,7 +218,130 @@
         <div class="card">
             <p style="text-align: center; color: #999;">No hospitals or doctors found.</p>
         </div>
+        {% if search_query %}
+        <p style="text-align: center; color: #666; margin-top: 20px;">
+            💡 Try searching for: Cardiologist, Dentist, Pediatrician, or Hospital name
+        </p>
         {% endif %}
+        {% endif %}
+
+        <!-- **NEW: My Appointments Section** -->
+        <div class="card my-appointments">
+            <h3>📋 My Appointments</h3>
+            <input type="tel" id="phoneInput" class="phone-input" placeholder="Enter your phone number (10 digits)" maxlength="15">
+            <button onclick="loadAppointments()" style="margin-left: 10px;">Load My Appointments</button>
+            
+            <div id="appointmentsList"></div>
+            <div id="messageArea"></div>
+        </div>
     </div>
+
+    <script>
+        let appointments = [];
+
+        async function loadAppointments() {
+            const phone = document.getElementById('phoneInput').value.replace(/\D/g, '');
+            const messageArea = document.getElementById('messageArea');
+            const appointmentsList = document.getElementById('appointmentsList');
+            
+            if (phone.length !== 10) {
+                showMessage('Please enter a valid 10-digit phone number', 'error');
+                return;
+            }
+
+            try {
+                appointmentsList.innerHTML = '<p>Loading...</p>';
+                const response = await fetch(`/my_appointments/${phone}`);
+                appointments = await response.json();
+                
+                if (appointments.length === 0) {
+                    appointmentsList.innerHTML = '<p>No appointments found for this phone number.</p>';
+                    return;
+                }
+                
+                displayAppointments();
+            } catch (error) {
+                showMessage('Error loading appointments. Please try again.', 'error');
+            }
+        }
+
+        function displayAppointments() {
+            const appointmentsList = document.getElementById('appointmentsList');
+            let html = '';
+            
+            appointments.forEach(apt => {
+                const isCancelled = apt.status === 'cancelled';
+                html += `
+                    <div class="appointment-item ${isCancelled ? 'cancelled' : ''}">
+                        <div class="appointment-details">
+                            <h4>👨‍⚕️ ${apt.doctor_name}</h4>
+                            <p><strong>🏥 ${apt.hospital_name}</strong></p>
+                            <div class="appointment-meta">
+                                📅 ${apt.appointment_date}<br>
+                                👤 ${apt.patient_name}<br>
+                                📱 ${apt.patient_phone}<br>
+                                <strong>Status: ${apt.status === 'confirmed' ? '✅ Confirmed' : '❌ Cancelled'}</strong>
+                            </div>
+                        </div>
+                        ${!isCancelled ? 
+                            `<button class="cancel-btn" onclick="cancelAppointment(${apt.id}, '${apt.patient_phone.replace(/\D/g, '')}')">
+                                ❌ Cancel Appointment
+                            </button>` : 
+                            '<span style="color: #dc3545; font-weight: bold;">Cancelled</span>'
+                        }
+                    </div>
+                `;
+            });
+            
+            appointmentsList.innerHTML = html;
+        }
+
+        async function cancelAppointment(appointmentId, phone) {
+            if (!confirm('Are you sure you want to cancel this appointment? This action cannot be undone.')) {
+                return;
+            }
+
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Cancelling...';
+            const messageArea = document.getElementById('messageArea');
+
+            try {
+                const formData = new FormData();
+                formData.append('patient_phone', phone);
+                
+                const response = await fetch(`/cancel_appointment/${appointmentId}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showMessage(result.message, 'success');
+                    // Reload appointments
+                    setTimeout(loadAppointments, 1000);
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error cancelling appointment. Please try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '❌ Cancel Appointment';
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageArea = document.getElementById('messageArea');
+            messageArea.innerHTML = `<div class="${type}-msg">${message}</div>`;
+            setTimeout(() => {
+                messageArea.innerHTML = '';
+            }, 5000);
+        }
+
+        // Auto-focus phone input
+        document.getElementById('phoneInput').focus();
+    </script>
 </body>
 </html>
