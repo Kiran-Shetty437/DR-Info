@@ -61,6 +61,7 @@
         }
         .btn-danger {
             background: #dc3545 !important;
+            color: #fff;
         }
         .btn-danger:hover {
             background: #c82333 !important;
@@ -158,10 +159,59 @@
             font-size: 14px;
         }
         .hospital-image {
-            max-width: 100px;
+            max-width: 200px;
             height: auto;
             border-radius: 8px;
             margin-top: 10px;
+        }
+        .hospital-banner {
+            width: 100%;
+            height: 75vh; /* cover about 3/4 of screen height */
+            background-size: cover;
+            background-position: center;
+            border-radius: 10px;
+            margin: 20px auto;
+            position: relative;
+            display: flex;
+            align-items: flex-end; /* place content at the bottom */
+            justify-content: flex-start; /* place content on the left */
+            padding: 25px 35px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            font-size: 1.2em; /* smaller text */
+            font-weight: bold;
+            box-sizing: border-box;
+        }
+        .hospital-banner-text {
+            text-align: left;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 8px 14px;
+            border-radius: 10px;
+            max-width: 60%;
+            display: inline-block;
+        }
+        .edit-banner-button {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 12px;
+            font-size: 0.6em;
+            background: transparent; /* transparent button */
+            color: #ffffff;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            border: 1px solid #ffffff;
+        }
+        .edit-banner-button:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .hospital-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px auto;
+            max-width: 600px;
+            text-align: center;
         }
         .logout-link {
             text-align: right;
@@ -217,16 +267,27 @@
         {% endif %}
 
         {% if hospital %}
+        {% if hospital[3] %}
+        <div class="hospital-banner" style="background-image: url('/static/uploads/{{ hospital[3] }}');">
+            <div class="hospital-banner-text">
+                <h2 style="margin: 0 0 5px 0;">🏥 {{ hospital[1] }}</h2>
+                <p style="margin: 0;">{{ hospital[2] }}</p>
+                <a href="/dashboard?edit=1" class="edit-banner-button">✏️ Edit Hospital Details</a>
+            </div>
+        </div>
+        {% else %}
         <div class="hospital-info">
             <h3>🏥 Current Hospital Details</h3>
             <p><strong>Name:</strong> {{ hospital[1] }}</p>
             <p><strong>Location:</strong> {{ hospital[2] }}</p>
-            {% if hospital[3] %}
-            <img src="/static/uploads/{{ hospital[3] }}" alt="Hospital" class="hospital-image">
-            {% endif %}
+        </div>
+        <div style="text-align: center; margin: 20px 0;">
+            <a href="/dashboard?edit=1"><button>✏️ Edit Hospital Details</button></a>
         </div>
         {% endif %}
+        {% endif %}
 
+        {% if edit_mode %}
         <!-- Hospital Update Form -->
         <form method="POST" enctype="multipart/form-data" class="hospital-form">
             <h3>🏥 Update Hospital Details</h3>
@@ -243,7 +304,9 @@
                 <input type="file" name="hospital_image" accept="image/*">
             </div>
             <button type="submit">💾 Update Hospital</button>
+            <a href="/dashboard"><button type="button">❌ Cancel</button></a>
         </form>
+        {% endif %}
 
         <!-- Doctors Section -->
         <div class="doctors-section">
@@ -303,12 +366,10 @@
                     </div>
 
                     <div class="doctor-actions">
-                        {% if edit_mode %}
                         <form method="POST" style="display: inline;">
                             <input type="hidden" name="delete_doctor_id" value="{{ item.doctor[0] }}">
                             <button type="submit" class="btn-danger" onclick="return confirm('Delete {{ item.doctor[2] }}?')">🗑️ Delete</button>
                         </form>
-                        {% endif %}
                         <a href="/doctors?id={{ item.doctor[0] }}"><button>✏️ Edit</button></a>
                         <a href="/view_appointments/{{ item.doctor[0] }}"><button>📋 Appointments</button></a>
                     </div>

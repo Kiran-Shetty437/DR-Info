@@ -500,8 +500,15 @@ def dashboard():
     if request.method == "POST":
         delete_doctor_id = request.form.get("delete_doctor_id")
         if delete_doctor_id:
-            cur.execute("DELETE FROM doctor WHERE id=? AND username=?", (delete_doctor_id, username))
-            con.commit()
+            # Ensure the doctor belongs to this logged-in hospital
+            cur.execute("SELECT id FROM doctor WHERE id=? AND username=?", (delete_doctor_id, username))
+            doc = cur.fetchone()
+            if doc:
+                # First delete all appointments for this doctor
+                cur.execute("DELETE FROM appointment WHERE doctor_id=?", (delete_doctor_id,))
+                # Then delete the doctor record itself
+                cur.execute("DELETE FROM doctor WHERE id=? AND username=?", (delete_doctor_id, username))
+                con.commit()
             return redirect("/dashboard")
             
         name = request.form.get("name", "").strip()
@@ -557,6 +564,33 @@ def dashboard():
                            hospital=hospital, 
                            doctors_with_status=doctors_with_status, 
                            edit_mode=edit_mode)
+
+
+@app.route("/delete_doctor/<int:doctor_id>", methods=["POST"])
+def delete_doctor_profile(doctor_id):
+    """Delete a doctor profile and all its appointments (hospital owner only)."""
+    if "user" not in session:
+        return redirect("/login")
+
+    username = session["user"]
+    con = get_db()
+    cur = con.cursor()
+
+    # Verify this doctor belongs to the logged-in hospital
+    cur.execute("SELECT id FROM doctor WHERE id=? AND username=?", (doctor_id, username))
+    doctor = cur.fetchone()
+    if not doctor:
+        con.close()
+        return "Doctor not found or unauthorized", 404
+
+    # Delete all appointments for this doctor first
+    cur.execute("DELETE FROM appointment WHERE doctor_id=?", (doctor_id,))
+    # Then delete the doctor record
+    cur.execute("DELETE FROM doctor WHERE id=?", (doctor_id,))
+    con.commit()
+    con.close()
+
+    return redirect("/dashboard")
 
 @app.route("/doctors", methods=["GET", "POST"])
 def manage_doctors():
