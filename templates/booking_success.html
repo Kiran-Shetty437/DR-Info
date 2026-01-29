@@ -15,11 +15,6 @@
         .details p { margin: 10px 0; font-size: 18px; }
         .appointment-number { background: #e7f3ff; padding: 15px; border-radius: 10px; margin: 20px 0; border-left: 5px solid #007bff; }
         .appointment-number span { font-size: 32px; font-weight: bold; color: #007bff; }
-        .actions { display: flex; gap: 15px; justify-content: center; margin-top: 30px; }
-        .btn { padding: 12px 25px; border-radius: 8px; text-decoration: none; font-size: 16px; display: inline-block; }
-        .btn-primary { background: #007bff; color: white; }
-        .btn-success { background: #28a745; color: white; }
-        .btn:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
@@ -32,7 +27,9 @@
         <div class="success-card">
             <div class="success-icon">🎉</div>
             <h1>Appointment Confirmed!</h1>
-            <p style="font-size: 18px; color: #666;">Your appointment has been successfully booked.</p>
+            <p style="font-size: 18px; color: #666;">
+                Your appointment has been successfully booked.
+            </p>
 
             <div class="details">
                 <p><strong>👨‍⚕️ Doctor:</strong> {{ doctor[2] }}</p>
@@ -50,11 +47,6 @@
             <p style="color: #666; font-style: italic;">
                 Please arrive 15 minutes before your appointment time. Bring this confirmation with you.
             </p>
-        </div>
-
-        <div class="actions">
-            <a href="/my_appointments/{{ patient_phone }}" class="btn btn-primary">📋 View My Appointments</a>
-            <a href="/" class="btn btn-success">🏥 Book Another Appointment</a>
         </div>
     </div>
 </body>
