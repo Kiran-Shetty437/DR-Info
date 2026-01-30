@@ -14,10 +14,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 users = {
-    "Anushree": "123",
+    "govthebri": "hebri123",
     "durgahalady": "halady123",
     "NRkoteshwara": "koteshwara123",
-    "chinamayakundapur": "kundapur123",
+    "chinamaydeakundapur": "kundapur123",
     "adarshudupi": "udupi123"
 }
 
@@ -232,8 +232,9 @@ def book_appointment_page(doctor_id):
     cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=? AND appointment_date=?", (doctor_id, today))
     today_count = cur.fetchone()[0]
     
-    cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM appointment")
-    next_number = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=?", (doctor_id,))
+    next_number = cur.fetchone()[0] + 1
+
     
     max_appts = doctor[9] if len(doctor) > 9 and doctor[9] else DAILY_APPOINTMENT_LIMIT
     can_book_today = today_count < max_appts
@@ -333,8 +334,8 @@ def get_appointment_stats(doctor_id):
     cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=? AND appointment_date=?", (doctor_id, today))
     today_count = cur.fetchone()[0]
     
-    cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM appointment")
-    next_number = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=?", (doctor_id,))
+    next_number = cur.fetchone()[0] + 1
     
     can_book_today = today_count < max_appts and not is_unavailable
     
@@ -457,8 +458,9 @@ def book_appointment():
     cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=?", (doctor_id,))
     existing_count = cur.fetchone()[0]
     
-    cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM appointment")
-    next_appointment_number = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM appointment WHERE doctor_id=?", (doctor_id,))
+    next_appointment_number = cur.fetchone()[0] + 1
+
     
     cur.execute("""
         INSERT INTO appointment (doctor_id, doctor_name, hospital_name, appointment_date, patient_name, patient_phone, status)
